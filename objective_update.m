@@ -1,4 +1,5 @@
 function y=objective_update(x)
+
 trip=csvread('man.csv',1,0);
 citi_zone=csvread('citi_access.csv',1,1);
 expand=1;    % whether or not expand to 2016
@@ -7,19 +8,19 @@ for i=1:size(citi_zone,1)
     citi_zone(i,3)=citi_zone(i,1)*citi_zone(i,2);
 end
 
-constant=[0, 3.12028, 0.959621, 0.436728, 5.72408, 0.609463916095560]
-cost=-0.0616752
-time=[0.600431, -1.7437, 0, -4.27817, -5.68429, -4.27817]
-tsf=-3.14574
-access=-2.66062
-egress=-2.59169
+constant=[0, 3.12028, 0.959621, 0.436728, 5.72408, 0.609463916095560];
+cost=-0.0616752;
+time=[0.600431, -1.7437, 0, -4.27817, -5.68429, -4.27817];
+tsf=-3.14574;
+access=-2.66062;
+egress=-2.59169;
 
-B_smartphone=-0.552211962397275
+B_smartphone=-0.552211962397275;
 
-mu=1/0.012
-constant_auto=-2.20
-cost_auto=cost/mu
-
+mu=1/0.012;
+constant_auto=-2.20;
+cost_auto=cost/mu;
+time_auto=0;
 
 
 
@@ -64,7 +65,7 @@ for i=1:size(trip,1)
 %carpool, pt, taxi, bike, walk, citi, escooter
     temp(i,1)=constant(1)+cost*trip(i,29)+time(1)*trip(i,28)/3600;  %V_carpool
     
-    temp(i,2)=trip(i,32)*(constant(2)+cost*trip(i,33)+time(2)*trip(i,21)/3600+tsf*trip(i,34)+access*trip(i,22)/3600+egress*trip(i,23)/3600+wait*trip(i,25)/3600);
+    temp(i,2)=trip(i,32)*(constant(2)+cost*trip(i,33)+time(2)*trip(i,21)/3600+tsf*trip(i,34)+access*trip(i,22)/3600+egress*trip(i,23)/3600); %+wait*trip(i,25)/3600)
       %V_pt
     temp(i,3)=constant(3)+cost*trip(i,16)+time(3)*trip(i,17)/3600;  %V_taxi
     
@@ -77,13 +78,11 @@ for i=1:size(trip,1)
     temp(i,7)=(x(1)+cost*(1+0.15*time(6))+time(6)*trip(i,19)/3600); %escooter_without_smartphone
 
 
-    %why logsum1 and 2 have no difference?
-    
 
     logsum1(i)=log(exp(temp(i,1))+exp(temp(i,2))*trip(i,32)+exp(temp(i,3))+exp(temp(i,4))+exp(temp(i,5))+expand*(exp(temp(i,6))*citi_access(i)))+exp(temp(i,7));
     %logsum with escooter
     
-    logsum2(i)=log(exp(temp(i,1))+exp(temp(i,2))*trip(i,32)+exp(temp(i,3))+exp(temp(i,4))+exp(temp(i,5))+expand*(exp(temp(i,6))*citi_access(i)+exp(temp(i,7))));
+    %logsum2(i)=log(exp(temp(i,1))+exp(temp(i,2))*trip(i,32)+exp(temp(i,3))+exp(temp(i,4))+exp(temp(i,5))+expand*(exp(temp(i,6))*citi_access(i)+exp(temp(i,7))));
     
     if(i>1 && trip(i,36)==0)
         tour_time(i)=tour_time(i-1)+trip(i,14);
@@ -98,33 +97,33 @@ for i=1:size(trip,1)
 end
 
 
- %If i don't use logsum2, what should I do here?
 
-toursum(1,1)=logsum2(1)*smartphone(1)+(1-smartphone(1))*logsum1(1);
+toursum(1,1)=logsum1(1);
 for i=2:size(trip,1)
-    if(trip(i,36)==0)
-        toursum(i)=toursum(i-1)+logsum2(i)*smartphone(i)+(1-smartphone(i))*logsum1(i);
+    if(trip(i,36)==0) %first trip(1) or not (0)  
+        toursum(i)=toursum(i-1)+logsum1(i);
     else
-        toursum(i)=logsum2(i)*smartphone(i)+(1-smartphone(i))*logsum1(i);
+        toursum(i)=logsum1(i);
     end
 end
 
 p_auto=zeros(size(trip,1),1);
 p_nonauto=zeros(size(trip,1),1);
 
-
+%+time_auto*tour_time(i)/3600
 for i=1:(size(trip,1)-1)
     if(trip(i+1,36)==1)
-        p_auto(i)=exp(constant_auto+cost_auto*tour_cost(i)+time_auto*tour_time(i)/3600)/(exp(constant_auto+cost_auto*tour_cost(i)+time_auto*tour_time(i)/3600)+exp(toursum(i)/mu));
-        p_nonauto(i)=exp(toursum(i)/mu)/(exp(constant_auto+cost_auto*tour_cost(i)+time_auto*tour_time(i)/3600)+exp(toursum(i)/mu));
+        p_auto(i)=exp(constant_auto+cost_auto*tour_cost(i))/(exp(constant_auto+cost_auto*tour_cost(i))+exp(toursum(i)/mu)); %+time_auto*tour_time(i)/3600
+        p_nonauto(i)=exp(toursum(i)/mu)/(exp(constant_auto+cost_auto*tour_cost(i))+exp(toursum(i)/mu));
     elseif(i>1 && trip(i)>0)
         p_auto(i)=0;
         p_nonauto(i)=0;
     end
 end
-
-p_auto(size(trip,1))=exp(constant_auto+cost_auto*tour_cost(size(trip,1))+time_auto*tour_time(size(trip,1))/3600)/(exp(constant_auto+cost_auto*tour_cost(size(trip,1))+time_auto*tour_time(size(trip,1))/3600)+exp(toursum(size(trip,1))/mu));
-p_nonauto(size(trip,1))=exp(toursum(size(trip,1))/mu)/(exp(constant_auto+cost_auto*tour_cost(size(trip,1))+time_auto*tour_time(size(trip,1))/3600)+exp(toursum(size(trip,1))/mu));
+%remove +time_auto*tour_time(size(trip,1))/3600
+%+time_auto*tour_time(size(trip,1))/3600
+p_auto(size(trip,1))=exp(constant_auto+cost_auto*tour_cost(size(trip,1)))/(exp(constant_auto+cost_auto*tour_cost(size(trip,1)))+exp(toursum(size(trip,1))/mu));
+p_nonauto(size(trip,1))=exp(toursum(size(trip,1))/mu)/(exp(constant_auto+cost_auto*tour_cost(size(trip,1)))+exp(toursum(size(trip,1))/mu));
 
 
 for i=(size(trip,1)-1):-1:1
@@ -144,19 +143,21 @@ p_escooter=zeros(size(trip,1),1);
 
 
 for i=1:size(trip,1)
-    p_carpool(i)=trip(i,20)*p_nonauto(i)*(exp(temp(i,1))/exp(logsum2(i))*smartphone(i)+(1-smartphone(i))*exp(temp(i,1))/exp(logsum1(i)));
-    p_pt(i)=trip(i,20)*p_nonauto(i)*trip(i,32)*(exp(temp(i,2))/exp(logsum2(i))*smartphone(i)+(1-smartphone(i))*exp(temp(i,2))/exp(logsum1(i)));
-    p_taxi(i)=trip(i,20)*p_nonauto(i)*(exp(temp(i,3))/exp(logsum2(i))*smartphone(i)+(1-smartphone(i))*exp(temp(i,3))/exp(logsum1(i)));
-    p_bike(i)=trip(i,20)*p_nonauto(i)*(exp(temp(i,4))/exp(logsum2(i))*smartphone(i)+(1-smartphone(i))*exp(temp(i,4))/exp(logsum1(i)));
-    p_walk(i)=trip(i,20)*p_nonauto(i)*(exp(temp(i,5))/exp(logsum2(i))*smartphone(i)+(1-smartphone(i))*exp(temp(i,5))/exp(logsum1(i)));
-    p_citi(i)=trip(i,20)*expand*p_nonauto(i)*(exp(temp(i,6))/exp(logsum2(i))*citi_access(i)*smartphone(i)+(1-smartphone(i))*exp(temp(i,6))/exp(logsum1(i))*citi_access(i));
-    p_escooter(i)=trip(i,20)*p_nonauto(i)*(exp(temp(i,7))/exp(logsum2(i))*smartphone(i)+(1-smartphone(i))*exp(temp(i,6))/exp(logsum1(i)));
+    p_carpool(i)=trip(i,20)*p_nonauto(i)*(exp(temp(i,1))/exp(logsum1(i))); % only logsum1
+    
+    p_pt(i)=trip(i,20)*p_nonauto(i)*trip(i,32)*(exp(temp(i,2))/exp(logsum1(i)));
+    p_taxi(i)=trip(i,20)*p_nonauto(i)*(exp(temp(i,3))/exp(logsum1(i)));
+    p_bike(i)=trip(i,20)*p_nonauto(i)*(exp(temp(i,4))/exp(logsum1(i)));
+    p_walk(i)=trip(i,20)*p_nonauto(i)*(exp(temp(i,5))/exp(logsum1(i)));
+    p_citi(i)=trip(i,20)*expand*p_nonauto(i)*(exp(temp(i,6))/exp(logsum1(i))*citi_access(i));
+    p_escooter(i)=trip(i,20)*p_nonauto(i)*(exp(temp(i,7))/exp(logsum1(i)));
 end
 
+zone=zeros(1622,16);
 
 
-escooter_trip=csvread('escooter.csv',1,0);
-
+escooter_trip= csvread('fake_escooter.csv',1,0); %11,12 column
+%citibike_trip = csvread('citi.csv',1,0);
 
 for i=1:size(trip,1)
     zone(trip(i,3),1)=zone(trip(i,3),1)+p_auto(i)*trip(i,20);
@@ -169,7 +170,12 @@ for i=1:size(trip,1)
     zone(trip(i,3),8)=zone(trip(i,3),8)+p_escooter(i);
 end
 
-%%% i don't understand this
+
+
+%%% zone to calculate the whole modes
+%% if i want only Escooter,no need
+
+
 for i=1:size(trip,1)
     if(trip(i,27)==1)
         zone(trip(i,3),10)=zone(trip(i,3),10)+trip(i,20);
@@ -187,7 +193,7 @@ for i=1:size(trip,1)
 end
 
 
-%minimize sum of (y -guessed_y)^2
+
 
 RMSE=zeros(1622,8);
 for i=1:1622
@@ -197,10 +203,12 @@ for i=1:1622
     RMSE(i,4)=(zone(i,4)-zone(i,12))^2;
     RMSE(i,5)=(zone(i,5)-zone(i,13))^2;
     RMSE(i,6)=(zone(i,6)-zone(i,14))^2;
-    RMSE(i,7)=(zone(i,7)-zone(i,15))^2*expand;
+    RMSE(i,7)=(zone(i,7)-zone(i,15))^2;
     RMSE(i,8)=(zone(i,8)-zone(i,16))^2;
 end
 y=sqrt(sum(RMSE(:,7)/1622))+sqrt(sum(RMSE(:,8)/1622));
 
+
+%minimize sum of (y -guessed_y)^2 for only escooter
 
 
