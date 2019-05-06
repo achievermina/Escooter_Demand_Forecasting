@@ -1,5 +1,5 @@
 function y=objective_update(x)
-
+x=0;
 trip=csvread('man.csv',1,0);
 citi_zone=csvread('citi_access.csv',1,1);
 expand=1;    % whether or not expand to 2016
@@ -75,7 +75,7 @@ for i=1:size(trip,1)
     
     temp(i,6)=citi_access(i)*(constant(6)+cost*4.29+time(6)*trip(i,19)/3600+B_smartphone*smartphone(i));  %V_citi
     
-    temp(i,7)=(x(1)+cost*(1+0.15*time(6))+time(6)*trip(i,19)/3600); %escooter_without_smartphone
+    temp(i,7)=(x+cost*(1+0.15*time(6))+time(6)*trip(i,19)/3600); %escooter_without_smartphone
 
 
 
@@ -153,12 +153,19 @@ for i=1:size(trip,1)
     p_escooter(i)=trip(i,20)*p_nonauto(i)*(exp(temp(i,7))/exp(logsum1(i)));
 end
 
-zone=zeros(1622,16);
 
 
-escooter_trip= csvread('fake_escooter.csv',1,0); %11,12 column
+
+
+escooter_trip= csvread('TAZ_ES_ridership.csv',1,0);
 %citibike_trip = csvread('citi.csv',1,0);
 
+zone=zeros(1622,16);
+zone(:,16)=escooter_trip(:,2);
+
+
+%origin 12 이면 zone(12,1) 은 auto 확률
+ %브라이언 - 이렇게 모든확률을 더하는게 맞는거야??
 for i=1:size(trip,1)
     zone(trip(i,3),1)=zone(trip(i,3),1)+p_auto(i)*trip(i,20);
     zone(trip(i,3),2)=zone(trip(i,3),2)+p_carpool(i);
@@ -172,23 +179,37 @@ end
 
 
 
-%%% zone to calculate the whole modes
-%% if i want only Escooter,no need
+% zone to calculate the whole modes
+% if i want only Escooter,no need
+
+%choice model 
+%Choices in mode-choice model:
+%1.	Carpool (10) 2843
+%2.	Pt 
+%3.	Taxi (2) 792
+%4.	Bike (12) 497
+%5.	Walk (13) 11117
+%6.	Driving (11) 7055, not included in mode choice model
+%7.	Other (97)
+%8.	
+%9.	Citi bike
+%10.	Ridesharing
 
 
+% number of trip in destination + weight
 for i=1:size(trip,1)
-    if(trip(i,27)==1)
-        zone(trip(i,3),10)=zone(trip(i,3),10)+trip(i,20);
+    if(trip(i,27)==1)  
+        zone(trip(i,3),10)=zone(trip(i,3),10)+trip(i,20); %carpool
     elseif(trip(i,27)==2)
-        zone(trip(i,3),11)=zone(trip(i,3),11)+trip(i,20);
+        zone(trip(i,3),11)=zone(trip(i,3),11)+trip(i,20); %pt
     elseif(trip(i,27)==3)
-        zone(trip(i,3),12)=zone(trip(i,3),12)+trip(i,20);
+        zone(trip(i,3),12)=zone(trip(i,3),12)+trip(i,20); %taxi
     elseif(trip(i,27)==4)
-        zone(trip(i,3),13)=zone(trip(i,3),13)+trip(i,20);
+        zone(trip(i,3),13)=zone(trip(i,3),13)+trip(i,20); %bike
     elseif(trip(i,27)==5)
-        zone(trip(i,3),14)=zone(trip(i,3),14)+trip(i,20);
+        zone(trip(i,3),14)=zone(trip(i,3),14)+trip(i,20); %walk
     elseif(trip(i,27)==6)
-        zone(trip(i,3),9)=zone(trip(i,3),9)+trip(i,20);
+        zone(trip(i,3),9)=zone(trip(i,3),9)+trip(i,20); %auto
     end
 end
 
@@ -204,9 +225,9 @@ for i=1:1622
     RMSE(i,5)=(zone(i,5)-zone(i,13))^2;
     RMSE(i,6)=(zone(i,6)-zone(i,14))^2;
     RMSE(i,7)=(zone(i,7)-zone(i,15))^2;
-    RMSE(i,8)=(zone(i,8)-zone(i,16))^2;
+    RMSE(i,8)=(zone(i,8)-zone(i,16))^2; %escooter
 end
-y=sqrt(sum(RMSE(:,7)/1622))+sqrt(sum(RMSE(:,8)/1622));
+y=sqrt(sum(RMSE(:,8)/1622));
 
 
 %minimize sum of (y -guessed_y)^2 for only escooter
